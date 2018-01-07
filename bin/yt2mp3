@@ -1,0 +1,79 @@
+#!/bin/bash
+set -euo pipefail
+
+DST_FILE=""
+START_TIMESTAMP=""
+END_TIMESTAMP=""
+POSITIONAL=()
+ENABLE_TAGS=0
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+case $key in
+    -o|--output)
+    DST_FILE="$2"
+    echo $DST_FILE
+    shift # past argument
+    shift # past value
+    ;;
+    -s|--start)
+    START_TIMESTAMP="$2"
+    shift
+    shift
+    ;;
+    -e|--end)
+    END_TIMESTAMP="$2"
+    shift
+    shift
+    ;;
+    -t|--tags)
+    # Annotate ID3 tags interactively
+    ENABLE_TAGS=1
+    shift
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1") # save it in an array for later
+    shift # past argument
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+URL=${1:-}
+if [[ -z "$URL" ]]; then
+	echo "Usage: yt2mp3 -f <filename> [--start start_timestamp --end end_timestamp ] <URL>"
+fi
+# Set default output name if not provided
+if [[ -z $DST_FILE ]]; then
+	DST_FILE=`youtube-dl --restrict-filenames --get-filename $URL`
+	DST_FILE="${DST_FILE/%.*/.mp3}"
+fi
+
+if [[ $ENABLE_TAGS == 1 ]]; then
+	echo -n "Song Title: "
+	read SONG_TITLE
+	echo -n "Artist: "
+	read SONG_ARTIST
+	echo -n "Album: "
+	read SONG_ALBUM
+fi
+
+
+# UUID is safer if we do this concurrently
+UUID=`uuidgen`
+TMP_FILE="/tmp/$UUID" 
+
+youtube-dl -x --audio-quality 0 --audio-format 'mp3' -o "$TMP_FILE.%(ext)s" $URL
+if [[ -n $START_TIMESTAMP ]] && [[ -n $END_TIMESTAMP ]]; then
+	ffmpeg -i "$TMP_FILE.mp3" -ss $START_TIMESTAMP -to $END_TIMESTAMP -c copy $DST_FILE
+else
+	cp "$TMP_FILE.mp3" $DST_FILE
+fi
+
+if [[ $ENABLE_TAGS == 1 ]]; then
+	mid3v2 -A "$SONG_ALBUM" -a "$SONG_ARTIST" -t "$SONG_TITLE" $DST_FILE
+fi
+
+echo "Cleaning up... $TMP_FILE.mp3"
+rm "$TMP_FILE.mp3"
