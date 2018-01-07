@@ -7,6 +7,10 @@ END_TIMESTAMP=""
 POSITIONAL=()
 ENABLE_TAGS=0
 
+print_help() {
+    echo "Usage: yt2mp3 -f <filename> [--start start_timestamp --end end_timestamp ] <URL>"
+    exit 0
+}
 while [[ $# -gt 0 ]]
 do
 key="$1"
@@ -21,6 +25,10 @@ case $key in
     START_TIMESTAMP="$2"
     shift
     shift
+    ;;
+    -h|--help)
+    print_help
+    exit 0
     ;;
     -e|--end)
     END_TIMESTAMP="$2"
@@ -42,7 +50,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 URL=${1:-}
 if [[ -z "$URL" ]]; then
-	echo "Usage: yt2mp3 -f <filename> [--start start_timestamp --end end_timestamp ] <URL>"
+	print_help
 fi
 # Set default output name if not provided
 if [[ -z $DST_FILE ]]; then
